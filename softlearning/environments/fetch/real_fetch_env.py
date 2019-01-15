@@ -10,16 +10,21 @@ import tensorflow as tf
 
 from softlearning.misc.utils import PROJECT_PATH
 
-from softlearning.environments.fetch.simple_camera import *
-from softlearning.environments.fetch.rl_moveit import *
-import roslib
-import rospy
-import math
-roslib.load_manifest('joint_listener')
+from softlearning.environments.fetch.rl_moveit_wrapper import *
+from geometry_msgs.msg import TwistStamped
+from std_msgs.msg import Header
+import geometry_msgs.msg
+
 from joint_listener.srv import ReturnJointStates, ReturnEEPose
 
-latent_meta_path = '/scr/kevin/unsupervised_upn/summ/reacher_random_fix_goal_latent_planning_ol_lr0.0005_il_lr0.25_num_plan_updates_40_horizon_1_num_train_28500__learn_lr_clip0.03_loss_coeff_100.0_n_hidden_2_30-11-2018_21-50-03/models/model_plan_test_265000.meta'
-scale_and_bias_path = '/scr/kevin/unsupervised_upn/data/reacher/scale_and_bias_reacher_random_large_fix_goal_30k_1.pkl'
+import roslib
+roslib.load_manifest('joint_listener')
+import rospy
+import math
+from softlearning.environments.fetch.simple_camera import *
+
+
+latent_meta_path = '/scr/glebs/dev/softlearning/softlearning/learned_models/model_5k_0/model_plan_test_133000.meta'
 
 class FetchReachVisionEnv(Serializable, metaclass=abc.ABCMeta):
     """Implements the real fetch reaching environment with visual rewards"""
@@ -75,11 +80,14 @@ class FetchReachVisionEnv(Serializable, metaclass=abc.ABCMeta):
                 }
                 self.xg = self.latent_sess.run(self.latent_feed_dict['xg'],
                                                 feed_dict={self.latent_feed_dict['og']: np.zeros((1, 100, 100, 3))})
-        if scale_and_bias_path is not None:
-            with open(scale_and_bias_path, 'rb') as f:
-                data = pickle.load(f)
-                self.scale = data['scale']
-                self.bias = data['bias']
+        # if scale_and_bias_path is not None:
+        #     with open(scale_and_bias_path, 'rb') as f:
+        #         data = pickle.load(f)
+        #         self.scale = data['scale']
+        #         self.bias = data['bias']
+
+        self.scale = 0
+        self.bias = 0
 
         #Finally we want to make a fixed goal pose
         self.fixed_goal = self.moveit.random_pose()
@@ -247,7 +255,7 @@ class FetchReachVisionEnv(Serializable, metaclass=abc.ABCMeta):
         self.goal_pose = pose
         self.moveit.go_to(pose)
 
-        self.goal_img = self.active_camera.capture()
+        self.goal_img = self.camera.capture()
 
         self.xg = self.latent_sess.run(self.latent_feed_dict['xg'],
                                                         feed_dict={self.latent_feed_dict['og']: np.expand_dims(self.goal_img / 255.0, axis=0)})

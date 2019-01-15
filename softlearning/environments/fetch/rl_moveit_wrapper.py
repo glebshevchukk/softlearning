@@ -1,8 +1,8 @@
 #THIS IS BASICALLY GOING TO BE ONE MASSIVE WRAPPER THAT SENDS ALL PLANNING REQUESTS AND WHAT NOT TO THE ACTUAL MOVEIT COMMANDER RUNNING FROM 2.7
 
 import time
-from tf.transformations import quaternion_from_euler,euler_from_quaternion
-
+import sys
+import numpy as np
 import geometry_msgs.msg
 from geometry_msgs.msg import Point,Pose, Quaternion
 from std_msgs.msg import String
@@ -10,17 +10,41 @@ from std_msgs.msg import String
 
 #AS LONG AS THESE THINGS WORK, WE ARE IN BUSINESS!
 import roslib
+import rospy
 roslib.load_manifest('joint_listener')
-from joint_listener.srv import ReturnJointStates, ReturnEEPose
-from tf.transformations import quaternion_from_euler,euler_from_quaternion
+from joint_listener.srv import ReturnJointStates, ReturnEEPose, ReturnQuat, ReturnEuler, SendMoveitPose
 import copy
-
 import numpy.random as npr
 
 
 joint_names = ["torso_lift_joint", "shoulder_pan_joint", "shoulder_lift_joint", "upperarm_roll_joint", "elbow_flex_joint", "forearm_roll_joint", "wrist_flex_joint", "wrist_roll_joint"]
 
-quat = list(quaternion_from_euler(0, 1.5707, 1.5707))
+
+#because tf2 doesn't play nicely with python3, we have to run both converters on the fetch and pipe over services
+#just going to overload eepose for now because it's too much to make a new service
+def quaternion_from_euler(x,y,z):
+    rospy.wait_for_service("return_quat_from_euler")
+    try:
+        s = rospy.ServiceProxy("/return_quat_from_euler", ReturnQuat)
+        resp = s(x,y,z)
+    except rospy.ServiceException:
+        print("error when calling return_quat_from_euler: %s")
+        sys.exit(1)
+
+    return [resp.x, resp.y, resp.z, resp.w]
+
+def euler_from_quaternion(x,y,z,w):
+    rospy.wait_for_service("return_euler_from_quat")
+    try:
+        s = rospy.ServiceProxy("/return_euler_from_quat", ReturnEuler)
+        resp = s(x,y,z,w)
+    except rospy.ServiceException:
+        print("error when calling return_euler_from_quat: %s")
+        sys.exit(1)
+
+    return [resp.x, resp.y, resp.z]
+
+quat = quaternion_from_euler(0, 1.5707, 1.5707)
 upright = Quaternion(quat[0],quat[1],quat[2],quat[3])
 
 
@@ -54,10 +78,11 @@ class RLMoveIt(object):
         self.height = None
 
         self.get_start_point()
+        self.get_ee_bounds()
 
     def random_pose(self):
-        x = npr.uniform(low=lower_x, high=upper_x)
-        y = npr.uniform(low=lower_y, high=upper_y)
+        x = npr.uniform(low=self.lower_x, high=self.upper_x)
+        y = npr.uniform(low=self.lower_y, high=self.upper_y)
         pose = Point(x, y, self.height)
         pose = Pose(position=pose, orientation=upright)
 
@@ -72,17 +97,17 @@ class RLMoveIt(object):
             print("error when calling return_ee_pose: %s")
             sys.exit(1)
 
-        return (np.array(resp.position), np.array(resp.velocity), np.array(resp.effort))
+        return resp.pose.pose
 
     def send_pose(self, pose):
         rospy.wait_for_service("send_moveit_pose")
         try:
-            s = rospy.ServiceProxy("/send_moveit_pose", ReturnEEPose)
+            s = rospy.ServiceProxy("/send_moveit_pose", SendMoveitPose)
             resp = s(pose)
         except rospy.ServiceException:
             print("error when calling send_moveit_pose: %s")
             sys.exit(1)
-        return (np.array(resp.position), np.array(resp.velocity), np.array(resp.effort))
+        return resp
 
     def get_ee_bounds(self, fixed=True):
         if fixed:
@@ -216,3 +241,11 @@ class RLMoveIt(object):
             return True
         else:
             return False
+
+if __name__ == "__main__":
+
+    m = RLMoveIt()
+
+    print(m.get_ee_pose())
+    print(m.random_pose())
+    print(m.exceeds_bounds())

@@ -4,11 +4,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import sys
+sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
+
 import multiprocessing
 from multiprocessing import Process
 import os
 import subprocess
-import sys
 import time
 import cv2
 import matplotlib
@@ -52,11 +54,13 @@ class SimpleCamera(object):
     self.active_camera = camera
 
 
-  def capture(self, timestep):
+  def capture(self):
 
     im = self.get_image()
 
-    return np.array(im)
+    im = preprocess_image(im)
+
+    return im
 
 
   def close(self):

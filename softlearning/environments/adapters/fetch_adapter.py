@@ -1,4 +1,6 @@
 import numpy as np
+import gym
+from gym import spaces, wrappers
 
 from .softlearning_env import SoftlearningEnv
 
