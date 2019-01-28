@@ -3,6 +3,7 @@ import os.path as osp
 from collections import OrderedDict
 import numpy as np
 from serializable import Serializable
+import gym
 from gym.spaces import Box, Dict
 from PIL import Image
 import pickle
@@ -16,26 +17,38 @@ from std_msgs.msg import Header
 import geometry_msgs.msg
 
 from joint_listener.srv import ReturnJointStates, ReturnEEPose
-
 import roslib
 roslib.load_manifest('joint_listener')
 import rospy
 import math
+import time
 from softlearning.environments.fetch.simple_camera import *
 
+scale_control = 0.5
 
 latent_meta_path = '/scr/glebs/dev/softlearning/softlearning/learned_models/model_5k_0/model_plan_test_133000.meta'
 
-class FetchReachVisionEnv(Serializable, metaclass=abc.ABCMeta):
+class FetchReachVisionEnv(gym.Env, Serializable, metaclass=abc.ABCMeta):
     """Implements the real fetch reaching environment with visual rewards"""
 
     def __init__(self, vision=True, random_init=False, use_latent=True, use_imitation=False, 
                 random_action_horizon=0, fixed_goal=True, camera_port=0):
 
+        #SETTING UP OBS SPACE AND AC SPACE
+
+        #3 for ee pose and 3 for goal pos
+
+        #3 for ee pose 128 for latent metric
+        obs_high = np.inf*np.ones(3)
+        self.observation_space = Box(-obs_high, obs_high, dtype=np.float32)
+
+        #just x,y velocity
+        ac_high = np.ones(2)
+        self.action_space = Box(low=-ac_high, high=ac_high, dtype=np.float32)
+
         #MOVEIT
         rospy.init_node('fetch_sac_rl')
         self.moveit = RLMoveIt()
-        self.pub = rospy.Publisher('/arm_controller/cartesian_twist/command', TwistStamped)
         self.rate = rospy.Rate(1)
 
         #CAMERA
@@ -90,10 +103,18 @@ class FetchReachVisionEnv(Serializable, metaclass=abc.ABCMeta):
         self.bias = 0
 
         #Finally we want to make a fixed goal pose
-        self.fixed_goal = self.moveit.random_pose()
-        self.fixed_goal_array = [self.fixed_goal.position.x,self.fixed_goal.position.y]
+        self.fixed_goal_array = [0.67,0.15,0.96]
+        self.fixed_goal = self.moveit.fixed_pose(self.fixed_goal_array[0], self.fixed_goal_array[1])
+
         self.make_goal(self.fixed_goal)
 
+
+        print(self.fixed_goal_array)
+        image_stats = [self.goal_img, self.fixed_goal_array]
+
+        pickle.dump(image_stats, open('/scr/glebs/dev/softlearning/goal_info/goal_info_0.pkl', 'wb'))
+        image = Image.fromarray(self.goal_img, 'RGB')
+        image.save('/scr/glebs/dev/softlearning/goal_info/goal_image_0.png')
         # self.quick_init(locals())
         self._Serializable__initialize(locals())
 
@@ -150,7 +171,6 @@ class FetchReachVisionEnv(Serializable, metaclass=abc.ABCMeta):
 
         if hasattr(self, "goal_img"):
             while np.all(img == 0.):
-                import time
                 img, qt = self.get_current_image_obs()
                 time.sleep(0.05)
             vec= img / 255.0 - self.goal_img / 255.0
@@ -182,23 +202,35 @@ class FetchReachVisionEnv(Serializable, metaclass=abc.ABCMeta):
             done = True
         else:
             done = False
+
         return ob, reward, done, dict(reward_dist=reward_dist, reward_ctrl=reward_ctrl, reach_dist=actual_dist)
 
-
     #return arm back to the fixed start position
-    def reset_model(self):
-
-        self.moveit.go_to_start()
+    def reset(self):
+        while self.moveit.not_at_start():
+            self.moveit.go_to_start()
 
         return self._get_obs()
 
-    #Q: why we squeezing xg, what diff between this and below
     def _get_obs(self):
+
+        pose = self.get_ee_pose()
+        pose_array = [pose.position.x,pose.position.y,pose.position.z]
+
+        # current_img, _ = self.get_current_image_obs()
+        # xo = self.latent_sess.run(self.latent_feed_dict['xg'],
+        #                                                 feed_dict={self.latent_feed_dict['og']: np.expand_dims(current_img / 255.0, axis=0)})
         
         if self.use_latent:
             return np.concatenate([
-                self.get_joint_info(),
-                self.fixed_goal_array,
+                pose_array,
+                #ACTUAL GOAL
+                #self.fixed_goal_array,
+                #LATENT REP OF GOAL
+                #np.squeeze(self.xg),
+                #LATENT REP OF CURRENT OBS
+                #np.squeeze(xo)
+
             ])
         return self.get_joint_info()
 
@@ -225,29 +257,47 @@ class FetchReachVisionEnv(Serializable, metaclass=abc.ABCMeta):
 
     def get_actual_distance(self):
         current_pose = self.get_ee_pose()
-        goal_pose = self.goal_pose()
+        goal_pose = self.goal_pose
 
         distance = math.sqrt((current_pose.position.x-goal_pose.position.x)**2 + (current_pose.position.y-goal_pose.position.y)**2 + (current_pose.position.z-goal_pose.position.z)**2) 
         return distance
 
 
     def get_ee_pose(self):
-        return self.group.get_current_pose().pose
+        return self.moveit.get_ee_pose()
 
     def take_action(self, action):
-        command = self.new_twist_command(action[0], action[1], action[2])
-        self.pub.publish(action)
-        self.rate.sleep()
 
-    def new_twist_command(self,x=0, y=0, z=0):
-        twist = TwistStamped()
+        self.moveit.send_velocity(scale_control*action[0], scale_control*action[1], 0)
+        current_pose = self.get_ee_pose()
 
-        twist.header.frame_id = 'base_link'
-        twist.twist.linear.x = x
-        twist.twist.linear.y = y
-        twist.twist.linear.z = z
+        if current_pose.position.x < self.moveit.lower_point.position.x:
+            self.moveit.send_velocity(scale_control, 0, 0)
+        elif current_pose.position.y < self.moveit.lower_point.position.y:
+            self.moveit.send_velocity(0, scale_control, 0)
+        elif current_pose.position.x > self.moveit.upper_point.position.x:
+            self.moveit.send_velocity(-scale_control, 0, 0)
+        elif current_pose.position.y > self.moveit.upper_point.position.y:
+            self.moveit.send_velocity(0,-scale_control,0)
 
-        return twist
+
+        # while self.moveit.orientation_violated():
+        #     self.moveit.fix_orientation()
+        # self.moveit.send_velocity(0, 0, 0)
+
+        # command = self.new_twist_command()
+        # self.pub.publish(command)
+        # self.rate.sleep()
+
+    # def new_twist_command(self,x=0, y=0, z=0):
+    #     twist = TwistStamped()
+
+    #     twist.header.frame_id = 'base_link'
+    #     twist.twist.linear.x = x
+    #     twist.twist.linear.y = y
+    #     twist.twist.linear.z = z
+
+    #     return twist
 
     #sets goal, moves to that goal, and get's all info (image, joints) at the goal state
     def make_goal(self, pose):

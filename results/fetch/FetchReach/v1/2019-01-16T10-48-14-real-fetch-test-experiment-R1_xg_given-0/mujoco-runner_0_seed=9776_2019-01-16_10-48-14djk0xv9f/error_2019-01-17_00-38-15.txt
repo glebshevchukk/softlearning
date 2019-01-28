@@ -1,0 +1,21 @@
+Traceback (most recent call last):
+  File "/scr/glebs/deps/anaconda3/envs/softlearning/lib/python3.6/site-packages/ray/tune/trial_runner.py", line 261, in _process_events
+    result = self.trial_executor.fetch_result(trial)
+  File "/scr/glebs/deps/anaconda3/envs/softlearning/lib/python3.6/site-packages/ray/tune/ray_trial_executor.py", line 211, in fetch_result
+    result = ray.get(trial_future[0])
+  File "/scr/glebs/deps/anaconda3/envs/softlearning/lib/python3.6/site-packages/ray/worker.py", line 2386, in get
+    raise value
+ray.worker.RayTaskError: [36mray_ExperimentRunner:train()[39m (pid=26736, host=sadigh-ws-1.stanford.edu)
+  File "/scr/glebs/deps/anaconda3/envs/softlearning/lib/python3.6/site-packages/ray/memory_monitor.py", line 78, in raise_if_low_memory
+    self.error_threshold))
+ray.memory_monitor.RayOutOfMemoryError: More than 95% of the memory on node sadigh-ws-1.stanford.edu is used (32.41 / 33.67 GB). The top 5 memory consumers are:
+
+PID	MEM	COMMAND
+26736	2.59GB	ray_ExperimentRunner:train()
+26704	0.38GB	python -m examples.development.main --mode=local --universe=fetch --domain=FetchReach --task=v1 --ex
+26724	0.08GB	/scr/glebs/deps/anaconda3/envs/softlearning/bin/python -u /scr/glebs/deps/anaconda3/envs/softlearnin
+26742	0.08GB	ray_worker
+26741	0.08GB	ray_worker
+
+In addition, ~0.15 GB of shared memory is currently being used by the Ray object store. You can set the object store size with the `object_store_memory` parameter when starting Ray, and the max Redis size with `redis_max_memory`.
+

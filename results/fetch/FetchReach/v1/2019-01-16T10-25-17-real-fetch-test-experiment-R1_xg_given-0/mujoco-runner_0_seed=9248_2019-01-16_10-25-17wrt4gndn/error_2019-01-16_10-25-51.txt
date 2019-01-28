@@ -1,0 +1,30 @@
+Traceback (most recent call last):
+  File "/scr/glebs/deps/anaconda3/envs/softlearning/lib/python3.6/site-packages/ray/tune/trial_runner.py", line 261, in _process_events
+    result = self.trial_executor.fetch_result(trial)
+  File "/scr/glebs/deps/anaconda3/envs/softlearning/lib/python3.6/site-packages/ray/tune/ray_trial_executor.py", line 211, in fetch_result
+    result = ray.get(trial_future[0])
+  File "/scr/glebs/deps/anaconda3/envs/softlearning/lib/python3.6/site-packages/ray/worker.py", line 2386, in get
+    raise value
+ray.worker.RayTaskError: [36mray_ExperimentRunner:train()[39m (pid=25330, host=sadigh-ws-1.stanford.edu)
+  File "/scr/glebs/deps/anaconda3/envs/softlearning/lib/python3.6/site-packages/ray/tune/trainable.py", line 146, in train
+    result = self._train()
+  File "/scr/glebs/dev/softlearning/examples/development/main.py", line 79, in _train
+    diagnostics = next(self.train_generator)
+  File "/scr/glebs/dev/softlearning/softlearning/algorithms/rl_algorithm.py", line 135, in _train
+    env, initial_exploration_policy, pool)
+  File "/scr/glebs/dev/softlearning/softlearning/algorithms/rl_algorithm.py", line 79, in _initial_exploration_hook
+    self.sampler.sample()
+  File "/scr/glebs/dev/softlearning/softlearning/samplers/simple_sampler.py", line 25, in sample
+    self._current_observation)[None]
+  File "/scr/glebs/dev/softlearning/softlearning/policies/uniform_policy.py", line 62, in actions_np
+    return self.actions_model.predict(conditions)
+  File "/scr/glebs/deps/anaconda3/envs/softlearning/lib/python3.6/site-packages/tensorflow/python/keras/engine/training.py", line 1864, in predict
+    x, check_steps=True, steps_name='steps', steps=steps)
+  File "/scr/glebs/deps/anaconda3/envs/softlearning/lib/python3.6/site-packages/tensorflow/python/keras/engine/training.py", line 992, in _standardize_user_data
+    class_weight, batch_size)
+  File "/scr/glebs/deps/anaconda3/envs/softlearning/lib/python3.6/site-packages/tensorflow/python/keras/engine/training.py", line 1117, in _standardize_weights
+    exception_prefix='input')
+  File "/scr/glebs/deps/anaconda3/envs/softlearning/lib/python3.6/site-packages/tensorflow/python/keras/engine/training_utils.py", line 332, in standardize_input_data
+    ' but got array with shape ' + str(data_shape))
+ValueError: Error when checking input: expected input_9 to have shape (6,) but got array with shape (131,)
+

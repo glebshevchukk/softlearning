@@ -36,16 +36,17 @@ POLICY_PARAMS_FOR_DOMAIN.update({
     'gaussian': POLICY_PARAMS_FOR_DOMAIN['GaussianPolicy'],
 })
 
-DEFAULT_MAX_PATH_LENGTH = 1000
+DEFAULT_MAX_PATH_LENGTH = 10
 MAX_PATH_LENGTH_PER_DOMAIN = {
     'Point2DEnv': 50,
+    'FetchReach': 20,
 }
 
 ALGORITHM_PARAMS_BASE = {
     'type': 'SAC',
 
     'kwargs': {
-        'epoch_length': 1000,
+        'epoch_length': 400,
         'train_every_n_steps': 1,
         'n_train_repeat': 1,
         'n_initial_exploration_steps': int(1e3),
@@ -81,6 +82,7 @@ NUM_EPOCHS_PER_DOMAIN = {
     'HandReach': int(1e4),
     'Point2DEnv': int(200),
     'Reacher': int(200),
+    'FetchReach': int(200),
 }
 
 ALGORITHM_PARAMS_PER_DOMAIN = {
@@ -92,7 +94,7 @@ ALGORITHM_PARAMS_PER_DOMAIN = {
                 'n_initial_exploration_steps': (
                     MAX_PATH_LENGTH_PER_DOMAIN.get(
                         domain, DEFAULT_MAX_PATH_LENGTH
-                    ) * 10),
+                    )*10),
             }
         } for domain in NUM_EPOCHS_PER_DOMAIN
     }
@@ -154,10 +156,12 @@ ENV_PARAMS = {
         'Wall': {
             'observation_keys': ('observation', ),
         },
-    }
+    },
+    'FetchReach': {  # 2 DoF
+    },
 }
 
-NUM_CHECKPOINTS = 10
+NUM_CHECKPOINTS = 100
 
 
 def get_variant_spec(universe, domain, task, policy):

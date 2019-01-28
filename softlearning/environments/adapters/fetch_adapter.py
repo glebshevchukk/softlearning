@@ -5,6 +5,8 @@ from gym import spaces, wrappers
 from .softlearning_env import SoftlearningEnv
 
 from softlearning.environments.fetch.real_fetch_env import FetchReachVisionEnv
+from softlearning.environments.fetch.real_fetch_push_env import FetchPushVisionEnv
+from softlearning.environments.gym.wrappers import NormalizeActionWrapper
 
 
 def raise_on_use_wrapper(e):
@@ -16,6 +18,9 @@ def raise_on_use_wrapper(e):
 FETCH_ENVIRONMENTS = {
     'FetchReach': {
         'v1': FetchReachVisionEnv,
+    },
+    'FetchPush': {
+        'v1': FetchPushVisionEnv,
     },
 }
 
@@ -64,7 +69,7 @@ class FetchAdapter(SoftlearningEnv):
     def active_observation_shape(self):
         """Shape for the active observation based on observation_keys."""
         if not isinstance(self._env.observation_space, spaces.Dict):
-            return super(FetcgAdapter, self).active_observation_shape
+            return super(FetchAdapter, self).active_observation_shape
 
         observation_keys = (
             self.observation_keys
@@ -117,7 +122,7 @@ class FetchAdapter(SoftlearningEnv):
         return self._env.reset(*args, **kwargs)
 
     def render(self, *args, **kwargs):
-        return self._env.render(*args, **kwargs)
+        return None
 
     def close(self, *args, **kwargs):
         return self._env.close(*args, **kwargs)

@@ -9,6 +9,8 @@ import numpy as np
 
 from softlearning.samplers import rollouts
 
+import pdb
+
 
 class RLAlgorithm(tf.contrib.checkpoint.Checkpointable):
     """Abstract RLAlgorithm.
@@ -128,18 +130,20 @@ class RLAlgorithm(tf.contrib.checkpoint.Checkpointable):
 
         if not self._training_started:
             self._init_training()
-
+            
             self._initial_exploration_hook(
                 env, initial_exploration_policy, pool)
 
+        #pdb.set_trace()
         self.sampler.initialize(env, policy, pool)
-        evaluation_env = env.copy() if self._eval_n_episodes else None
+        evaluation_env = env if self._eval_n_episodes else None
 
         gt.reset_root()
         gt.rename_root('RLAlgorithm')
         gt.set_def_unique(False)
 
         self._training_before_hook()
+
 
         for self._epoch in gt.timed_for(range(self._epoch, self._n_epochs)):
             self._epoch_before_hook()
@@ -160,7 +164,9 @@ class RLAlgorithm(tf.contrib.checkpoint.Checkpointable):
                 gt.stamp('sample')
 
                 if self.ready_to_train:
+
                     self._do_training_repeats(timestep=self._total_timestep)
+
                 gt.stamp('train')
 
                 self._timestep_after_hook()

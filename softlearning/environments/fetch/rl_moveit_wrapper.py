@@ -4,7 +4,7 @@ import time
 import sys
 import numpy as np
 import geometry_msgs.msg
-from geometry_msgs.msg import Point,Pose, Quaternion
+from geometry_msgs.msg import Point,Pose, Quaternion, TwistStamped
 from std_msgs.msg import String
 
 
@@ -12,7 +12,7 @@ from std_msgs.msg import String
 import roslib
 import rospy
 roslib.load_manifest('joint_listener')
-from joint_listener.srv import ReturnJointStates, ReturnEEPose, ReturnQuat, ReturnEuler, SendMoveitPose
+from joint_listener.srv import ReturnJointStates, ReturnEEPose, ReturnQuat, ReturnEuler, SendMoveitPose, SendVelocity, SendTorsoHeight
 import copy
 import numpy.random as npr
 
@@ -48,17 +48,17 @@ quat = quaternion_from_euler(0, 1.5707, 1.5707)
 upright = Quaternion(quat[0],quat[1],quat[2],quat[3])
 
 
-f_lower_x = 0.4
+f_lower_x = 0.45
 f_upper_x = 0.7
 
-f_lower_y = -0.35
-f_upper_y = 0.15
+f_lower_y = -0.17
+f_upper_y = 0.17
 
 
 f_height=0.96
 
 f_start_x = 0.5
-f_start_y = -0.1
+f_start_y = 0
 
 
 class RLMoveIt(object):
@@ -88,6 +88,12 @@ class RLMoveIt(object):
 
         return pose
 
+    def fixed_pose(self,x,y):
+        pose = Point(x, y, self.height)
+        pose = Pose(position=pose, orientation=upright)
+
+        return pose
+
     def get_ee_pose(self):
         rospy.wait_for_service("return_ee_pose")
         try:
@@ -106,6 +112,17 @@ class RLMoveIt(object):
             resp = s(pose)
         except rospy.ServiceException:
             print("error when calling send_moveit_pose: %s")
+            sys.exit(1)
+        return resp
+
+
+    def send_velocity(self, x, y, z):
+        rospy.wait_for_service("send_velocity_command")
+        try:
+            s = rospy.ServiceProxy("/send_velocity_command", SendVelocity)
+            resp = s(x, y, z)
+        except rospy.ServiceException:
+            print("error when calling send_velocity_command: %s")
             sys.exit(1)
         return resp
 
@@ -174,6 +191,7 @@ class RLMoveIt(object):
 
         if fixed:
             self.start_point = Pose(position=Point(f_start_x, f_start_y, f_height), orientation=upright)
+            self.higher_start_point = Pose(position=Point(f_start_x, f_start_y, f_height + 0.05), orientation=upright)
             return True
         else:
             try:
@@ -190,6 +208,10 @@ class RLMoveIt(object):
 
     def go_to_start(self):
         print("Going to start")
+        self.set_extended_torso()
+        time.sleep(2)
+        self.send_pose(self.higher_start_point)
+        time.sleep(2)
         self.send_pose(self.start_point)
         
 
@@ -233,6 +255,18 @@ class RLMoveIt(object):
         return False
 
 
+    def set_extended_torso(self):
+        height = 0.4
+        rospy.wait_for_service("send_torso_height")
+        try:
+            s = rospy.ServiceProxy("/send_torso_height", SendTorsoHeight)
+            resp = s(height)
+        except rospy.ServiceException:
+            print("error when calling send_extended_torso: %s")
+            sys.exit(1)
+        return resp
+
+
     def exceeds_bounds(self):
 
         current_pose = self.get_ee_pose()
@@ -242,6 +276,8 @@ class RLMoveIt(object):
         else:
             return False
 
+
+
 if __name__ == "__main__":
 
     m = RLMoveIt()
@@ -249,3 +285,4 @@ if __name__ == "__main__":
     print(m.get_ee_pose())
     print(m.random_pose())
     print(m.exceeds_bounds())
+    print(m.send_velocity(0,0,0))

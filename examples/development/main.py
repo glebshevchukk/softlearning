@@ -233,9 +233,9 @@ def main():
             args.checkpoint_replay_pool)
 
     local_dir_base = (
-        '~/ray_results/local'
+        '/scr/glebs/dev/softlearning/results'
         if args.mode in ('local', 'debug')
-        else '~/ray_results')
+        else '/scr/glebs/dev/softlearning/results')
     local_dir = os.path.join(local_dir_base, universe, domain, task)
     launch_experiments_ray([variant_spec], args, local_dir, ExperimentRunner)
 

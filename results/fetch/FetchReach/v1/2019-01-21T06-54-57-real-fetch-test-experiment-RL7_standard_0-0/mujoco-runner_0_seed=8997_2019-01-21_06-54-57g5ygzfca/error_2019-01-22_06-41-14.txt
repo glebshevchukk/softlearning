@@ -1,0 +1,39 @@
+Traceback (most recent call last):
+  File "/scr/glebs/deps/anaconda3/envs/softlearning/lib/python3.6/site-packages/ray/tune/trial_runner.py", line 261, in _process_events
+    result = self.trial_executor.fetch_result(trial)
+  File "/scr/glebs/deps/anaconda3/envs/softlearning/lib/python3.6/site-packages/ray/tune/ray_trial_executor.py", line 211, in fetch_result
+    result = ray.get(trial_future[0])
+  File "/scr/glebs/deps/anaconda3/envs/softlearning/lib/python3.6/site-packages/ray/worker.py", line 2386, in get
+    raise value
+ray.worker.RayTaskError: [36mray_ExperimentRunner:train()[39m (pid=305, host=sadigh-ws-1.stanford.edu)
+  File "/scr/glebs/dev/softlearning/softlearning/environments/fetch/simple_camera.py", line 40, in get_camera
+    output = subprocess.check_output(['lsof -t /dev/video*'], shell=True)
+  File "/scr/glebs/deps/anaconda3/envs/softlearning/lib/python3.6/subprocess.py", line 336, in check_output
+    **kwargs).stdout
+  File "/scr/glebs/deps/anaconda3/envs/softlearning/lib/python3.6/subprocess.py", line 418, in run
+    output=stdout, stderr=stderr)
+subprocess.CalledProcessError: Command '['lsof -t /dev/video*']' returned non-zero exit status 1.
+
+During handling of the above exception, another exception occurred:
+
+[36mray_ExperimentRunner:train()[39m (pid=305, host=sadigh-ws-1.stanford.edu)
+  File "/scr/glebs/deps/anaconda3/envs/softlearning/lib/python3.6/site-packages/ray/tune/trainable.py", line 146, in train
+    result = self._train()
+  File "/scr/glebs/dev/softlearning/examples/development/main.py", line 73, in _train
+    self._build()
+  File "/scr/glebs/dev/softlearning/examples/development/main.py", line 47, in _build
+    env = self.env = get_environment_from_variant(variant)
+  File "/scr/glebs/dev/softlearning/softlearning/environments/utils.py", line 29, in get_environment_from_variant
+    return get_environment(universe, domain, task, env_params)
+  File "/scr/glebs/dev/softlearning/softlearning/environments/utils.py", line 20, in get_environment
+    return ADAPTERS[universe](domain, task, **env_params)
+  File "/scr/glebs/dev/softlearning/softlearning/environments/adapters/fetch_adapter.py", line 42, in __init__
+    env = FETCH_ENVIRONMENTS[domain][task](*args, **kwargs)
+  File "/scr/glebs/dev/softlearning/softlearning/environments/fetch/real_fetch_env.py", line 55, in __init__
+    self.camera = SimpleCamera(camera_port)
+  File "/scr/glebs/dev/softlearning/softlearning/environments/fetch/simple_camera.py", line 28, in __init__
+    self.get_camera(port)
+  File "/scr/glebs/dev/softlearning/softlearning/environments/fetch/simple_camera.py", line 51, in get_camera
+    'Cannot connect to cameras.')
+ValueError: Cannot connect to cameras.
+

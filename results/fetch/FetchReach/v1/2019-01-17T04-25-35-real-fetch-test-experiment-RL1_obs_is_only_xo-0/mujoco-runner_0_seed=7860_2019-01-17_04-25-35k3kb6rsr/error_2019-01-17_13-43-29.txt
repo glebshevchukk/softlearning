@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/scr/glebs/deps/anaconda3/envs/softlearning/lib/python3.6/site-packages/ray/tune/trial_runner.py", line 261, in _process_events
+    result = self.trial_executor.fetch_result(trial)
+  File "/scr/glebs/deps/anaconda3/envs/softlearning/lib/python3.6/site-packages/ray/tune/ray_trial_executor.py", line 211, in fetch_result
+    result = ray.get(trial_future[0])
+  File "/scr/glebs/deps/anaconda3/envs/softlearning/lib/python3.6/site-packages/ray/worker.py", line 2386, in get
+    raise value
+ray.worker.RayTaskError: Invalid return value: likely worker died or was killed while executing the task; check previous logs or dmesg for errors.

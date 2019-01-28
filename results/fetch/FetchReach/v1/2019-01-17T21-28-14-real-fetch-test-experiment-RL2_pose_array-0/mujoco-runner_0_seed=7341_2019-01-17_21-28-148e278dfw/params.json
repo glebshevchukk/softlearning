@@ -1,0 +1,69 @@
+{
+  "Q_params": {
+    "kwargs": {
+      "hidden_layer_sizes": [
+        256,
+        256
+      ]
+    },
+    "type": "double_feedforward_Q_function"
+  },
+  "algorithm_params": {
+    "kwargs": {
+      "action_prior": "uniform",
+      "discount": 0.99,
+      "epoch_length": 400,
+      "eval_deterministic": true,
+      "eval_n_episodes": 1,
+      "eval_render_mode": null,
+      "lr": 0.0003,
+      "n_epochs": 200,
+      "n_initial_exploration_steps": 200,
+      "n_train_repeat": 1,
+      "reparameterize": true,
+      "reward_scale": 1.0,
+      "store_extra_policy_info": false,
+      "target_entropy": "auto",
+      "target_update_interval": 1,
+      "tau": 0.005,
+      "train_every_n_steps": 1
+    },
+    "type": "SAC"
+  },
+  "domain": "FetchReach",
+  "env_params": {},
+  "git_sha": "8a60eebc9244f754146ea2c7e5ea8dbfc26a584d master",
+  "mode": "local",
+  "policy_params": {
+    "kwargs": {
+      "hidden_layer_sizes": [
+        256,
+        256
+      ],
+      "squash": true
+    },
+    "type": "GaussianPolicy"
+  },
+  "replay_pool_params": {
+    "kwargs": {
+      "max_size": 1000000.0
+    },
+    "type": "SimpleReplayPool"
+  },
+  "run_params": {
+    "checkpoint_at_end": true,
+    "checkpoint_frequency": 2,
+    "checkpoint_replay_pool": false,
+    "seed": 7341
+  },
+  "sampler_params": {
+    "kwargs": {
+      "batch_size": 256,
+      "max_path_length": 20,
+      "min_pool_size": 20
+    },
+    "type": "SimpleSampler"
+  },
+  "task": "v1",
+  "universe": "fetch"
+}

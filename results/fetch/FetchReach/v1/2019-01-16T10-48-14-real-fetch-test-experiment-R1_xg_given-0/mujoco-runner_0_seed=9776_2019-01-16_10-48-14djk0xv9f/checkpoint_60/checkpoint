@@ -1,0 +1,2 @@
+model_checkpoint_path: "/scr/glebs/dev/softlearning/results/fetch/FetchReach/v1/2019-01-16T10-48-14-real-fetch-test-experiment-R1_xg_given-0/mujoco-runner_0_seed=9776_2019-01-16_10-48-14djk0xv9f/checkpoint_60/checkpoint-1"
+all_model_checkpoint_paths: "/scr/glebs/dev/softlearning/results/fetch/FetchReach/v1/2019-01-16T10-48-14-real-fetch-test-experiment-R1_xg_given-0/mujoco-runner_0_seed=9776_2019-01-16_10-48-14djk0xv9f/checkpoint_60/checkpoint-1"
