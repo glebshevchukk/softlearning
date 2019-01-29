@@ -14,8 +14,9 @@ sudo docker run -it --net=host \
   -v "/etc/shadow:/etc/shadow:ro" \
   -v "/etc/sudoers.d:/etc/sudoers.d:ro" \
   -v "/scr/glebs/:/scr/glebs/" \
+  -v "/scr/kevin/:/scr/kevin/" \
   -v "/usr/lib/:/usr/lib/" \
   -v "/scr/glebs/deps/anaconda3:/scr/glebs/deps/anaconda3/" \
   -v "/usr/:/usr/" \
-  --name=ros-kinetic-dev \
+  --name=upn \
   kinetic:dev

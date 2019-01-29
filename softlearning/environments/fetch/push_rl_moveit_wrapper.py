@@ -44,7 +44,7 @@ def euler_from_quaternion(x,y,z,w):
 
     return [resp.x, resp.y, resp.z]
 
-quat = quaternion_from_euler(0, 1.5707, 1.5707)
+quat = quaternion_from_euler(0, 1.5707, 0)
 upright = Quaternion(quat[0],quat[1],quat[2],quat[3])
 
 
@@ -210,9 +210,7 @@ class RLMoveIt(object):
     def go_to_start(self):
         print("Going to start")
         self.set_extended_torso()
-        time.sleep(2)
         self.send_pose(self.higher_start_point)
-        time.sleep(2)
         self.send_pose(self.start_point)
         
 

@@ -43,7 +43,7 @@ class SimpleCamera(object):
         print('Killing hanging processes...')
         for process_id in output.split('\n')[:-1]:
           subprocess.call(['kill %s' % process_id], shell=True)
-        time.sleep(3)
+        #time.sleep(3)
         # Recapture webcam.
         camera = cv2.VideoCapture(port)
       except subprocess.CalledProcessError:

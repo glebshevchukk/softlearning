@@ -26,7 +26,7 @@ from softlearning.environments.fetch.simple_camera import *
 
 scale_control = 0.5
 
-latent_meta_path = ''
+latent_meta_path = '/scr/kevin/unsupervised_upn/summ/fetch_pushing_upnvae_latent_planning_ol_lr0.0003_il_lr0.25_num_plan_updates_20_horizon_14_num_train_4500__learn_lr_clip0.03_n_hidden_2_latent_dim_128_dt_14_fp_n_act_2_act_latent_dim_16_beta_0.5_28-01-2019_10-45-50/models/model_plan_test_7000.meta'
 
 class FetchPushVisionEnv(gym.Env, Serializable, metaclass=abc.ABCMeta):
     """Implements the real fetch pushing environment with visual rewards"""
@@ -49,7 +49,7 @@ class FetchPushVisionEnv(gym.Env, Serializable, metaclass=abc.ABCMeta):
         #MOVEIT
         rospy.init_node('fetch_sac_rl')
         self.moveit = RLMoveIt()
-        self.rate = rospy.Rate(1)
+        self.rate = rospy.Rate(2)
 
         #CAMERA
         self.camera = SimpleCamera(camera_port)
@@ -172,7 +172,7 @@ class FetchPushVisionEnv(gym.Env, Serializable, metaclass=abc.ABCMeta):
         if hasattr(self, "goal_img"):
             while np.all(img == 0.):
                 img, qt = self.get_current_image_obs()
-                time.sleep(0.05)
+                #time.sleep(0.05)
             vec= img / 255.0 - self.goal_img / 255.0
         else:
             vec = img / 255.0
@@ -182,7 +182,7 @@ class FetchPushVisionEnv(gym.Env, Serializable, metaclass=abc.ABCMeta):
             reward_dist = - np.linalg.norm(vec)
         else:
             if hasattr(self, "goal_img"):
-                reward_dist = -self.get_latent_metric(np.expand_dims(img, axis=0), qt.dot(self.scale) + self.bias)
+                reward_dist = -0.5*self.get_latent_metric(np.expand_dims(img, axis=0), qt.dot(self.scale) + self.bias)
                 reward_dist = np.exp(reward_dist)
             else:
                 reward_dist = 0.
@@ -217,9 +217,9 @@ class FetchPushVisionEnv(gym.Env, Serializable, metaclass=abc.ABCMeta):
         pose = self.get_ee_pose()
         pose_array = [pose.position.x,pose.position.y,pose.position.z]
 
-        # current_img, _ = self.get_current_image_obs()
-        # xo = self.latent_sess.run(self.latent_feed_dict['xg'],
-        #                                                 feed_dict={self.latent_feed_dict['og']: np.expand_dims(current_img / 255.0, axis=0)})
+        current_img, _ = self.get_current_image_obs()
+        xo = self.latent_sess.run(self.latent_feed_dict['xg'],
+                                                       feed_dict={self.latent_feed_dict['og']: np.expand_dims(current_img / 255.0, axis=0)})
         
         if self.use_latent:
             return np.concatenate([
@@ -229,7 +229,7 @@ class FetchPushVisionEnv(gym.Env, Serializable, metaclass=abc.ABCMeta):
                 #LATENT REP OF GOAL
                 #np.squeeze(self.xg),
                 #LATENT REP OF CURRENT OBS
-                #np.squeeze(xo)
+                np.squeeze(xo)
 
             ])
         return self.get_joint_info()

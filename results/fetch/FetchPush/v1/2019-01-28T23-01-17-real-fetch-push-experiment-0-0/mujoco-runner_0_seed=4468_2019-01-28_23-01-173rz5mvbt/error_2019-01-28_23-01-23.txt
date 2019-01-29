@@ -1,0 +1,30 @@
+Traceback (most recent call last):
+  File "/scr/glebs/deps/anaconda3/envs/softlearning/lib/python3.6/site-packages/ray/tune/trial_runner.py", line 261, in _process_events
+    result = self.trial_executor.fetch_result(trial)
+  File "/scr/glebs/deps/anaconda3/envs/softlearning/lib/python3.6/site-packages/ray/tune/ray_trial_executor.py", line 211, in fetch_result
+    result = ray.get(trial_future[0])
+  File "/scr/glebs/deps/anaconda3/envs/softlearning/lib/python3.6/site-packages/ray/worker.py", line 2386, in get
+    raise value
+ray.worker.RayTaskError: [36mray_ExperimentRunner:train()[39m (pid=156, host=sadigh-ws-1.stanford.edu)
+  File "/scr/glebs/deps/anaconda3/envs/softlearning/lib/python3.6/site-packages/ray/tune/trainable.py", line 146, in train
+    result = self._train()
+  File "/scr/glebs/dev/softlearning/examples/development/main.py", line 73, in _train
+    self._build()
+  File "/scr/glebs/dev/softlearning/examples/development/main.py", line 47, in _build
+    env = self.env = get_environment_from_variant(variant)
+  File "/scr/glebs/dev/softlearning/softlearning/environments/utils.py", line 29, in get_environment_from_variant
+    return get_environment(universe, domain, task, env_params)
+  File "/scr/glebs/dev/softlearning/softlearning/environments/utils.py", line 20, in get_environment
+    return ADAPTERS[universe](domain, task, **env_params)
+  File "/scr/glebs/dev/softlearning/softlearning/environments/adapters/fetch_adapter.py", line 46, in __init__
+    env = FETCH_ENVIRONMENTS[domain][task](*args, **kwargs)
+  File "/scr/glebs/dev/softlearning/softlearning/environments/fetch/real_fetch_push_env.py", line 82, in __init__
+    saver = tf.train.import_meta_graph(latent_meta_path)
+  File "/scr/glebs/deps/anaconda3/envs/softlearning/lib/python3.6/site-packages/tensorflow/python/training/saver.py", line 1674, in import_meta_graph
+    meta_graph_or_file, clear_devices, import_scope, **kwargs)[0]
+  File "/scr/glebs/deps/anaconda3/envs/softlearning/lib/python3.6/site-packages/tensorflow/python/training/saver.py", line 1686, in _import_meta_graph_with_return_elements
+    meta_graph_def = meta_graph.read_meta_graph_file(meta_graph_or_file)
+  File "/scr/glebs/deps/anaconda3/envs/softlearning/lib/python3.6/site-packages/tensorflow/python/framework/meta_graph.py", line 633, in read_meta_graph_file
+    raise IOError("File %s does not exist." % filename)
+OSError: File /scr/kevin/unsupervised_upn/summ/fetch_pushing_upnvae_latent_planning_ol_lr0.0003_il_lr0.25_num_plan_updates_20_horizon_14_num_train_4500__learn_lr_clip0.03_n_hidden_2_latent_dim_128_dt_14_fp_n_act_2_act_latent_dim_16_beta_0.5_28-01-2019_10-45-50/models/model_plan_test_7000.meta does not exist.
+
