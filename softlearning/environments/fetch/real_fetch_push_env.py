@@ -12,21 +12,22 @@ import tensorflow as tf
 from softlearning.misc.utils import PROJECT_PATH
 
 from softlearning.environments.fetch.push_rl_moveit_wrapper import *
-from geometry_msgs.msg import TwistStamped
+from geometry_msgs.msg import TwistStamped,PoseStamped
 from std_msgs.msg import Header
 import geometry_msgs.msg
 
 from joint_listener.srv import ReturnJointStates, ReturnEEPose
-import roslib
-roslib.load_manifest('joint_listener')
 import rospy
 import math
 import time
 from softlearning.environments.fetch.simple_camera import *
 
-scale_control = 0.5
+scale_control = 10
 
-latent_meta_path = '/scr/kevin/unsupervised_upn/summ/fetch_pushing_upnvae_latent_planning_ol_lr0.0003_il_lr0.25_num_plan_updates_20_horizon_14_num_train_4500__learn_lr_clip0.03_n_hidden_2_latent_dim_128_dt_14_fp_n_act_2_act_latent_dim_16_beta_0.5_28-01-2019_10-45-50/models/model_plan_test_7000.meta'
+#INVERSE MODEL
+latent_meta_path = '/scr/glebs/dev/softlearning/inverse_models/fetch_pushing_inverse_multi_step_lstm_unit_64_fwd_consist_28-01-2019_17-21-58/models/model_plan_test_99000.meta'
+#UPN MODEL
+#latent_meta_path = '/scr/glebs/dev/softlearning/upn_models/model_plan_test_7000.meta'
 
 class FetchPushVisionEnv(gym.Env, Serializable, metaclass=abc.ABCMeta):
     """Implements the real fetch pushing environment with visual rewards"""
@@ -49,13 +50,13 @@ class FetchPushVisionEnv(gym.Env, Serializable, metaclass=abc.ABCMeta):
         #MOVEIT
         rospy.init_node('fetch_sac_rl')
         self.moveit = RLMoveIt()
-        self.rate = rospy.Rate(2)
+       
 
         #CAMERA
         self.camera = SimpleCamera(camera_port)
 
         self.curr_path_length = 0
-        self.max_path_length = 20
+        self.max_path_length = 15
         self.vision = vision
         self.random_init = random_init
         self.fixed_goal = fixed_goal
@@ -102,20 +103,27 @@ class FetchPushVisionEnv(gym.Env, Serializable, metaclass=abc.ABCMeta):
         self.scale = 0
         self.bias = 0
 
+        self.imgs = []
+        self.full_imgs = []
+
+        self.c_im_seq = []
+        self.c_full_im_seq = []
+        self.num_reset_calls = 0
         #Finally we want to make a fixed goal pose
-        self.fixed_goal_array = [0.7,0.1,0.97]
+        self.fixed_goal_array = [0.74,0.15,0.98]
         self.fixed_goal = self.moveit.fixed_pose(self.fixed_goal_array[0], self.fixed_goal_array[1])
 
         self.make_goal(self.fixed_goal)
-
-
-        print(self.fixed_goal_array)
         image_stats = [self.goal_img, self.fixed_goal_array]
-
-        pickle.dump(image_stats, open('/scr/glebs/dev/softlearning/goal_info/push_goal_info_0.pkl', 'wb'))
-        image = Image.fromarray(self.goal_img, 'RGB')
-        image.save('/scr/glebs/dev/softlearning/goal_info/push_goal_image_0.png')
+        #pickle.dump(image_stats, open('/scr/glebs/dev/softlearning/goal_info/push_goal_info_1.pkl', 'wb'))
+        #image = Image.fromarray(self.goal_img, 'RGB')
+        #image.save('/scr/glebs/dev/softlearning/goal_info/push_goal_image_1.png')
         # self.quick_init(locals())
+        image = Image.fromarray(self.goal_img, 'RGB')
+        image.save('/scr/glebs/dev/softlearning/final_rollouts/push/inverse/goal_0.png')
+
+        h_image = Image.fromarray(self.high_res_goal, 'RGB')
+        h_image.save('/scr/glebs/dev/softlearning/final_rollouts/push/inverse/high_res_goal_0.png')
         self._Serializable__initialize(locals())
 
     def get_latent_metric(self, ot, qt, og=None):
@@ -150,7 +158,7 @@ class FetchPushVisionEnv(gym.Env, Serializable, metaclass=abc.ABCMeta):
                                             feed_dict={self.latent_feed_dict['ot']: ot.reshape(1, T, 100, 100, 3) / 255.0,
                                                         self.latent_feed_dict['qt']:qt.reshape(1, T, 4)})
         return np.squeeze(plan)
-
+#NOTUSED
     def get_plan(self, ot, qt, og=None):
         if og is None:
             og = self.goal_img
@@ -166,13 +174,13 @@ class FetchPushVisionEnv(gym.Env, Serializable, metaclass=abc.ABCMeta):
         return np.squeeze(plan)
 
     def step(self, action):
-
-        img, qt = self.get_current_image_obs()
+        #print("Taking next step")
+        img, qt, full_img = self.get_current_image_obs()
+        #print("Got image")
+        self.c_im_seq.append(img)
+        self.c_full_im_seq.append(full_img)
 
         if hasattr(self, "goal_img"):
-            while np.all(img == 0.):
-                img, qt = self.get_current_image_obs()
-                #time.sleep(0.05)
             vec= img / 255.0 - self.goal_img / 255.0
         else:
             vec = img / 255.0
@@ -181,34 +189,53 @@ class FetchPushVisionEnv(gym.Env, Serializable, metaclass=abc.ABCMeta):
         if not self.use_latent:
             reward_dist = - np.linalg.norm(vec)
         else:
-            if hasattr(self, "goal_img"):
-                reward_dist = -0.5*self.get_latent_metric(np.expand_dims(img, axis=0), qt.dot(self.scale) + self.bias)
-                reward_dist = np.exp(reward_dist)
-            else:
-                reward_dist = 0.
-        reward_ctrl = - np.square(action).sum()
+            reward_dist = -0.2*self.get_latent_metric(np.expand_dims(img, axis=0), qt.dot(self.scale) + self.bias)
+            reward_dist = np.exp(reward_dist)
+        #reward_ctrl = - np.square(action).sum()
         #actual_dist = np.linalg.norm(actual_vec)
         if self.vision and not self.use_latent:
-            reward = reward_dist + 100.0*reward_ctrl
+            reward = reward_dist
         elif not self.use_latent:
-            reward = reward_dist + reward_ctrl
+            reward = reward_dist
         else:
             reward = reward_dist# + 0.1*reward_ctrl
-
+        #print("GOT REWARD")
         self.take_action(action)
+        #print("TOOK ACTION")
         ob = self._get_obs()
+        #print("GOT OBS")
         self.curr_path_length +=1
         if self.curr_path_length == self.max_path_length:
+            print("Max path reached")
+            self.imgs.append(self.c_im_seq)
+            self.full_imgs.append(self.c_full_im_seq)
+            self.num_reset_calls += 1
+
+            #print(self.num_reset_calls)
+            if self.num_reset_calls == 3:
+                print("Saving images to video")
+                self.save_images_to_video()
+
+            self.c_im_seq = []
+            self.c_full_im_seq = []
+
+            self.curr_path_length = 0
             done = True
         else:
             done = False
 
-        return ob, reward, done, dict(reward_dist=reward_dist, reward_ctrl=reward_ctrl)
+        return ob, reward, done, dict(reward_dist=reward_dist)
 
+    def save_images_to_video(self):
+        import imageio
+        for i in range(3):
+            print("/scr/glebs/dev/softlearning/final_rollouts/push/inverse/goal_0_%d.gif" % i)
+            imageio.mimwrite("/scr/glebs/dev/softlearning/final_rollouts/push/inverse/goal_0_%d.gif" % i, np.array(self.imgs[i]))
+            imageio.mimwrite("/scr/glebs/dev/softlearning/final_rollouts/push/inverse/full_goal_0_%d.gif" % i, np.array(self.full_imgs[i]))
     #return arm back to the fixed start position
     def reset(self):
-        while self.moveit.not_at_start():
-            self.moveit.go_to_start()
+        #while self.moveit.not_at_start():
+        self.moveit.go_to_start()
 
         return self._get_obs()
 
@@ -216,10 +243,10 @@ class FetchPushVisionEnv(gym.Env, Serializable, metaclass=abc.ABCMeta):
 
         pose = self.get_ee_pose()
         pose_array = [pose.position.x,pose.position.y,pose.position.z]
-
-        current_img, _ = self.get_current_image_obs()
-        xo = self.latent_sess.run(self.latent_feed_dict['xg'],
-                                                       feed_dict={self.latent_feed_dict['og']: np.expand_dims(current_img / 255.0, axis=0)})
+        #pose_array = [0,0,0]
+        #current_img, _ = self.get_current_image_obs()
+        #xo = self.latent_sess.run(self.latent_feed_dict['xg'],
+        #                                               feed_dict={self.latent_feed_dict['og']: np.expand_dims(current_img / 255.0, axis=0)})
         
         if self.use_latent:
             return np.concatenate([
@@ -229,14 +256,19 @@ class FetchPushVisionEnv(gym.Env, Serializable, metaclass=abc.ABCMeta):
                 #LATENT REP OF GOAL
                 #np.squeeze(self.xg),
                 #LATENT REP OF CURRENT OBS
-                np.squeeze(xo)
+                #np.squeeze(xo)
+
 
             ])
-        return self.get_joint_info()
+        return 0
 
     def get_current_image_obs(self):
-        img = self.camera.capture()
-        return img, self.get_joint_info()
+        img, full_img = self.camera.capture()
+        pose = self.get_ee_pose()
+
+        pose_array = np.array([pose.position.x,pose.position.y,pose.position.z])
+        #pose_array = np.array([0,0,0])
+        return img, pose_array, full_img
 
     def get_goal_image(self):
         assert hasattr(self, 'goal_img')
@@ -257,23 +289,29 @@ class FetchPushVisionEnv(gym.Env, Serializable, metaclass=abc.ABCMeta):
 
 
     def get_ee_pose(self):
+        #return 0;
         return self.moveit.get_ee_pose()
-
     def take_action(self, action):
 
-        self.moveit.send_velocity(scale_control*action[0], scale_control*action[1], 0)
         current_pose = self.get_ee_pose()
 
-        if current_pose.position.x < self.moveit.lower_point.position.x:
-            self.moveit.send_velocity(scale_control, 0, 0)
-        elif current_pose.position.y < self.moveit.lower_point.position.y:
-            self.moveit.send_velocity(0, scale_control, 0)
-        elif current_pose.position.x > self.moveit.upper_point.position.x:
-            self.moveit.send_velocity(-scale_control, 0, 0)
-        elif current_pose.position.y > self.moveit.upper_point.position.y:
-            self.moveit.send_velocity(0,-scale_control,0)
-
-
+        #print(current_pose)
+        #print(self.moveit.lower_point)
+        z_command = self.moveit.height - current_pose.position.z
+        if current_pose.position.x <= self.moveit.lower_point.position.x:
+            print("Exceeds x lower")
+            self.moveit.send_velocity(scale_control, 0, z_command)
+        elif current_pose.position.y <= self.moveit.lower_point.position.y:
+            print("Exceeds y lower")
+            self.moveit.send_velocity(0, scale_control, z_command)
+        elif current_pose.position.x >= self.moveit.upper_point.position.x:
+            print("Exceeds x upper")
+            self.moveit.send_velocity(-scale_control, 0, z_command)
+        elif current_pose.position.y >= self.moveit.upper_point.position.y:
+            print("Exceeds y upper")
+            self.moveit.send_velocity(0,-scale_control,z_command)
+        else:
+            self.moveit.send_velocity(scale_control*action[0], scale_control*action[1], z_command)
         # while self.moveit.orientation_violated():
         #     self.moveit.fix_orientation()
         # self.moveit.send_velocity(0, 0, 0)
@@ -298,7 +336,7 @@ class FetchPushVisionEnv(gym.Env, Serializable, metaclass=abc.ABCMeta):
         self.goal_pose = pose
         self.moveit.go_to(pose)
 
-        self.goal_img = self.camera.capture()
+        self.goal_img, self.high_res_goal = self.camera.capture()
 
         self.xg = self.latent_sess.run(self.latent_feed_dict['xg'],
                                                         feed_dict={self.latent_feed_dict['og']: np.expand_dims(self.goal_img / 255.0, axis=0)})

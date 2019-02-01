@@ -6,10 +6,10 @@ export ROS_HOSTNAME=$FETCH_IP
 export ROS_IP=$FETCH_IP
 
 
-export PATH=:/scr/glebs/deps/anaconda3/bin:$PATH
+export PATH=:/scr/glebs/anaconda3/bin:$PATH
 source activate softlearning
 
-export LD_LIBRARY_PATH="/usr/local/cuda/lib64":$LD_LIBRARY_PATH
+#export LD_LIBRARY_PATH="/usr/local/cuda/lib64":$LD_LIBRARY_PATH
 
 
 #RUN BEFOREHAND

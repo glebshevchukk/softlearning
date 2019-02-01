@@ -4,7 +4,7 @@ import time
 import sys
 import numpy as np
 import geometry_msgs.msg
-from geometry_msgs.msg import Point,Pose, Quaternion, TwistStamped
+from geometry_msgs.msg import Point,Pose, PoseStamped, Quaternion, TwistStamped
 from std_msgs.msg import String
 
 
@@ -15,10 +15,20 @@ roslib.load_manifest('joint_listener')
 from joint_listener.srv import ReturnJointStates, ReturnEEPose, ReturnQuat, ReturnEuler, SendMoveitPose, SendVelocity, SendTorsoHeight
 import copy
 import numpy.random as npr
-
+import threading
+import queue
 
 joint_names = ["torso_lift_joint", "shoulder_pan_joint", "shoulder_lift_joint", "upperarm_roll_joint", "elbow_flex_joint", "forearm_roll_joint", "wrist_flex_joint", "wrist_roll_joint"]
 
+
+def new_twist_command(x=0, y=0, z=0):
+    twist = TwistStamped()
+    twist.header.frame_id = 'base_link'
+    twist.twist.linear.x = x
+    twist.twist.linear.y = y
+    twist.twist.linear.z = z
+
+    return twist
 
 #because tf2 doesn't play nicely with python3, we have to run both converters on the fetch and pipe over services
 #just going to overload eepose for now because it's too much to make a new service
@@ -44,21 +54,19 @@ def euler_from_quaternion(x,y,z,w):
 
     return [resp.x, resp.y, resp.z]
 
-quat = quaternion_from_euler(0, 1.5707, 1.5707)
-upright = Quaternion(quat[0],quat[1],quat[2],quat[3])
-
+upright = Quaternion(0.4996018, 0.4999998, 0.4999998, 0.5003982)
 
 f_lower_x = 0.45
 f_upper_x = 0.7
 
-f_lower_y = -0.17
-f_upper_y = 0.17
+f_lower_y = -0.2
+f_upper_y = 0.2
 
 
 f_height=0.96
 
-f_start_x = 0.5
-f_start_y = 0
+f_start_x = 0.4
+f_start_y = 0.15
 
 
 class RLMoveIt(object):
@@ -76,6 +84,11 @@ class RLMoveIt(object):
         self.upper_x = None
         self.upper_y = None
         self.height = None
+
+        self.pub = rospy.Publisher('/arm_controller/cartesian_twist/command', TwistStamped)
+        self.rate = rospy.Rate(1)
+        self.pose_sender = rospy.ServiceProxy("/send_moveit_pose", SendMoveitPose,persistent=False)
+        self.ee_returner = rospy.ServiceProxy("/return_ee_pose", ReturnEEPose,persistent=False)
 
         self.get_start_point()
         self.get_ee_bounds()
@@ -95,36 +108,53 @@ class RLMoveIt(object):
         return pose
 
     def get_ee_pose(self):
-        rospy.wait_for_service("return_ee_pose")
         try:
-            s = rospy.ServiceProxy("/return_ee_pose", ReturnEEPose)
-            resp = s(joint_names)
-        except rospy.ServiceException:
-            print("error when calling return_ee_pose: %s")
-            sys.exit(1)
+            pose = rospy.wait_for_message("/ee_pose", PoseStamped, timeout=1)
+            self.current_pose=pose
+            return pose.pose
+        except:
+            return self.current_pose.pose
+        return self.current_pose
 
-        return resp.pose.pose
+    # def get_ee_pose(self):
+    #     rospy.wait_for_service("return_ee_pose")
+    #     try:
+    #         resp = self.ee_returner(joint_names)
+    #     except rospy.ServiceException:
+    #         print("error when calling return_ee_pose: %s")
+    #         sys.exit(2)
+
+    #     print(resp.pose.pose)
+
+    #     return resp.pose.pose
 
     def send_pose(self, pose):
         rospy.wait_for_service("send_moveit_pose")
         try:
-            s = rospy.ServiceProxy("/send_moveit_pose", SendMoveitPose)
-            resp = s(pose)
+            resp = self.pose_sender(pose)
         except rospy.ServiceException:
             print("error when calling send_moveit_pose: %s")
             sys.exit(1)
         return resp
 
 
+    # def send_velocity(self, x, y, z):
+    #     rospy.wait_for_service("send_velocity_command")
+    #     try:
+    #         s = rospy.ServiceProxy("/send_velocity_command", SendVelocity)
+    #         resp = s(x, y, z)
+    #     except rospy.ServiceException:
+    #         print("error when calling send_velocity_command: %s")
+    #         sys.exit(1)
+    #     return resp
+
     def send_velocity(self, x, y, z):
-        rospy.wait_for_service("send_velocity_command")
-        try:
-            s = rospy.ServiceProxy("/send_velocity_command", SendVelocity)
-            resp = s(x, y, z)
-        except rospy.ServiceException:
-            print("error when calling send_velocity_command: %s")
-            sys.exit(1)
-        return resp
+        twist = new_twist_command(x, y, z)
+        self.pub.publish(twist)
+        self.rate.sleep()
+        twist = new_twist_command(0, 0, 0)
+        self.pub.publish(twist)
+        #self.sleep_rate.sleep()
 
     def get_ee_bounds(self, fixed=True):
         if fixed:
@@ -207,12 +237,11 @@ class RLMoveIt(object):
                 return False
 
     def go_to_start(self):
-        print("Going to start")
         self.set_extended_torso()
-        time.sleep(2)
         self.send_pose(self.higher_start_point)
-        time.sleep(2)
         self.send_pose(self.start_point)
+
+        print("At start")
         
 
     def go_to(self, pose, high=False):

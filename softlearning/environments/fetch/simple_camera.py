@@ -58,9 +58,9 @@ class SimpleCamera(object):
 
     im = self.get_image()
 
-    im = preprocess_image(im)
+    proc_im = preprocess_image(im)
 
-    return im
+    return proc_im, im[...,[2,1,0]]
 
 
   def close(self):
